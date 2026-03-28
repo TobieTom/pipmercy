@@ -15,13 +15,18 @@ FEEDS = [
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
     {
-        "name": "DailyFX",
-        "url": "https://www.dailyfx.com/feeds/all",
+        "name": "DailyFX News",
+        "url": "https://www.dailyforex.com/rss/forexnews.xml",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
     {
-        "name": "MyFXBook",
-        "url": "https://www.myfxbook.com/rss/latest-forex-news",
+        "name": "DailyFX Analysis",
+        "url": "https://www.dailyforex.com/rss/fundamentalanalysis.xml",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
+    {
+        "name": "ForexCrunch",
+        "url": "https://forexcrunch.com/feed",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
 ]
@@ -153,7 +158,9 @@ async def summarize_with_groq(articles: list) -> str:
                         "what happened, which currency pairs are affected, and what it means for "
                         "traders. Be concise, direct, and use simple language for a beginner "
                         "trader. Start each bullet with an emoji relevant to the direction "
-                        "(📈 bullish, 📉 bearish, ⚠️ uncertain)."
+                        "(📈 bullish, 📉 bearish, ⚠️ uncertain). "
+                        "Only discuss forex and currency markets. Ignore any content about stocks, "
+                        "tech companies, or non-forex topics."
                     ),
                 },
                 {"role": "user", "content": content},
@@ -170,7 +177,7 @@ def format_news_message(articles: list, summary: str) -> str:
     """Combine Groq summary + top 5 source links into one message."""
     sources = "\n".join(
         f"[{a['source']}] {a['title']} → {a['link']}"
-        for a in articles[:5]
+        for a in articles[:3]
     )
     return (
         f"📰 Forex Market Update\n"
