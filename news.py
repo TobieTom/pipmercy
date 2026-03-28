@@ -31,6 +31,29 @@ FEEDS = [
     },
 ]
 
+CURRENCY_KEYWORDS = {
+    "USD": ["USD", "Dollar", "Fed", "Federal Reserve", "FOMC", "NFP", "CPI", "inflation", "Powell"],
+    "EUR": ["EUR", "Euro", "ECB", "European Central Bank", "Eurozone"],
+    "GBP": ["GBP", "Pound", "Sterling", "BOE", "Bank of England"],
+    "JPY": ["JPY", "Yen", "BOJ", "Bank of Japan"],
+    "CAD": ["CAD", "Loonie", "BOC", "Bank of Canada", "Oil"],
+    "AUD": ["AUD", "Aussie", "RBA", "Reserve Bank of Australia"],
+    "NZD": ["NZD", "Kiwi", "RBNZ"],
+    "CHF": ["CHF", "Franc", "SNB"],
+    "XAU": ["Gold", "XAU", "bullion"],
+}
+
+_HEATMAP_PAIR_KEYWORDS = {
+    "EUR/USD": ["EURUSD", "EUR/USD", "Euro Dollar"],
+    "GBP/USD": ["GBPUSD", "GBP/USD", "Cable", "Pound Dollar"],
+    "USD/JPY": ["USDJPY", "USD/JPY", "Dollar Yen"],
+    "USD/CAD": ["USDCAD", "USD/CAD", "Dollar Loonie"],
+    "AUD/USD": ["AUDUSD", "AUD/USD", "Aussie Dollar"],
+    "XAU/USD": ["XAUUSD", "XAU/USD", "Gold Dollar", "Gold price"],
+    "GBP/JPY": ["GBPJPY", "GBP/JPY"],
+    "EUR/JPY": ["EURJPY", "EUR/JPY"],
+}
+
 PAIR_KEYWORDS = {
     "EURUSD": ["EUR", "Euro", "EURUSD", "ECB", "European"],
     "GBPUSD": ["GBP", "Pound", "Sterling", "GBPUSD", "BOE", "Bank of England"],
@@ -173,15 +196,101 @@ async def summarize_with_groq(articles: list) -> str:
         return f"⚠️ Could not summarize news right now. Here are the headlines:\n{headlines}"
 
 
+def analyze_market_pressure(articles: list) -> dict:
+    """Count per-article currency and pair mentions across all articles."""
+    total = len(articles)
+
+    currency_counts = {c: 0 for c in CURRENCY_KEYWORDS}
+    pair_counts = {p: 0 for p in _HEATMAP_PAIR_KEYWORDS}
+
+    for article in articles:
+        haystack = (article["title"] + " " + article["summary"]).lower()
+        for currency, keywords in CURRENCY_KEYWORDS.items():
+            if any(kw.lower() in haystack for kw in keywords):
+                currency_counts[currency] += 1
+        for pair, keywords in _HEATMAP_PAIR_KEYWORDS.items():
+            if any(kw.lower() in haystack for kw in keywords):
+                pair_counts[pair] += 1
+
+    sorted_currencies = dict(sorted(currency_counts.items(), key=lambda x: x[1], reverse=True))
+    sorted_pairs = dict(sorted(pair_counts.items(), key=lambda x: x[1], reverse=True))
+
+    top_currencies = [(c, n) for c, n in sorted_currencies.items() if n > 0][:3]
+    top_pairs = [(p, n) for p, n in sorted_pairs.items() if n > 0][:3]
+
+    return {
+        "currencies":     sorted_currencies,
+        "pairs":          sorted_pairs,
+        "total_articles": total,
+        "top_currencies": top_currencies,
+        "top_pairs":      top_pairs,
+    }
+
+
+def format_heatmap_message(pressure: dict) -> str:
+    """Render market pressure as a block-bar heatmap string."""
+    if pressure["total_articles"] == 0:
+        return "📊 No articles available for analysis right now."
+
+    def bar(count, max_count):
+        if max_count == 0:
+            return ""
+        length = round((count / max_count) * 8)
+        return "█" * length
+
+    def dot(count, max_count):
+        if max_count == 0 or count == 0:
+            return "⚪"
+        ratio = count / max_count
+        if ratio >= 0.6:
+            return "🔴"
+        if ratio >= 0.3:
+            return "🟡"
+        return "🟢"
+
+    top_c = pressure["top_currencies"]
+    top_p = pressure["top_pairs"]
+    total = pressure["total_articles"]
+
+    max_c = top_c[0][1] if top_c else 1
+    max_p = top_p[0][1] if top_p else 1
+
+    lines = [
+        f"📊 Market Pressure — Top 3",
+        f"Based on {total} recent articles",
+    ]
+
+    if top_c:
+        lines.append("💱 Currencies Under Pressure:")
+        for currency, count in top_c:
+            b = bar(count, max_c).ljust(8)
+            d = dot(count, max_c)
+            lines.append(f"{d} {currency:<4} {b}  {count} articles")
+
+    if top_p:
+        lines.append("🔗 Most Active Pairs:")
+        for pair, count in top_p:
+            b = bar(count, max_p).ljust(8)
+            d = dot(count, max_p)
+            lines.append(f"{d} {pair:<9} {b}  {count} articles")
+
+    lines.append("⚡ Focus your analysis on the pairs with most activity.")
+    return "\n".join(lines)
+
+
 def format_news_message(articles: list, summary: str) -> str:
-    """Combine Groq summary + top 5 source links into one message."""
+    """Combine Groq summary + heatmap + top 3 source links into one message."""
     sources = "\n".join(
         f"[{a['source']}] {a['title']} → {a['link']}"
         for a in articles[:3]
     )
+    pressure = analyze_market_pressure(articles)
+    heatmap = format_heatmap_message(pressure)
     return (
         f"📰 Forex Market Update\n"
         f"{summary}\n"
+        f"─────────────────\n"
+        f"{heatmap}\n"
         f"─────────────────\n"
         f"📎 Sources:\n\n"
         f"{sources}"

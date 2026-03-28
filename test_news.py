@@ -1,5 +1,5 @@
 import asyncio
-from news import fetch_news, get_news_for_pair, summarize_with_groq, format_news_message
+from news import fetch_news, get_news_for_pair, summarize_with_groq, format_news_message, analyze_market_pressure, format_heatmap_message
 
 SEP = "-" * 50
 
@@ -29,8 +29,21 @@ async def main():
     print(summary)
     print()
 
-    # 4. Full formatted message
-    print("TEST 4 — format_news_message")
+    # 4. Heatmap
+    print("TEST 4 — analyze_market_pressure + format_heatmap_message")
+    print(SEP)
+    all_articles = await fetch_news(limit=20)
+    pressure = analyze_market_pressure(all_articles)
+    print(f"Raw pressure data:")
+    print(f"  total_articles: {pressure['total_articles']}")
+    print(f"  top_currencies: {pressure['top_currencies']}")
+    print(f"  top_pairs:      {pressure['top_pairs']}")
+    print()
+    print(format_heatmap_message(pressure))
+    print()
+
+    # 5. Full formatted message (includes heatmap)
+    print("TEST 5 — format_news_message (with embedded heatmap)")
     print(SEP)
     print(format_news_message(articles, summary))
 

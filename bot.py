@@ -19,7 +19,7 @@ from calendar_alerts import fetch_today_events, format_calendar_message, check_u
 from config import TELEGRAM_TOKEN, CHAT_ID
 from database import init_db
 from journal import get_weekly_summary, format_weekly_summary
-from news import fetch_news, summarize_with_groq, format_news_message
+from news import fetch_news, summarize_with_groq, format_news_message, analyze_market_pressure, format_heatmap_message
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -95,7 +95,7 @@ async def news_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     news_summary = await summarize_with_groq(articles)
     result = format_news_message(articles, news_summary)
     for chunk in _split(result):
-        await update.message.reply_text(chunk)
+        await update.message.reply_text(chunk, disable_web_page_preview=True)
 
 
 async def calendar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -136,6 +136,19 @@ async def close_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 
+async def heatmap_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    await context.bot.send_chat_action(chat_id=update.message.chat_id, action=ChatAction.TYPING)
+    articles = await fetch_news(limit=20)
+    if not articles:
+        await update.message.reply_text("📊 No articles available for analysis right now.")
+        return
+    pressure = analyze_market_pressure(articles)
+    message = format_heatmap_message(pressure)
+    await update.message.reply_text(message, disable_web_page_preview=True)
+
+
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usage: /price EURUSD\nExample: /price XAUUSD")
@@ -166,7 +179,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         response = await process_message(update.message.text)
         for chunk in _split(response):
-            await update.message.reply_text(chunk)
+            await update.message.reply_text(chunk, disable_web_page_preview=True)
     except Exception:
         await update.message.reply_text("⚠️ Something went wrong. Try again!")
 
@@ -200,7 +213,7 @@ async def morning_briefing(context: ContextTypes.DEFAULT_TYPE):
         f"{news_summary}\n\n"
         "Trade safe and stick to your plan! 💪"
     )
-    await _send(context.bot, CHAT_ID, msg)
+    await _send(context.bot, CHAT_ID, msg, disable_web_page_preview=True)
 
 
 async def calendar_check(context: ContextTypes.DEFAULT_TYPE):
@@ -213,7 +226,7 @@ async def news_digest(context: ContextTypes.DEFAULT_TYPE):
         return
     news_summary = await summarize_with_groq(articles)
     result = "📰 *Market Update*\n\n" + format_news_message(articles, news_summary)
-    await _send(context.bot, CHAT_ID, result)
+    await _send(context.bot, CHAT_ID, result, disable_web_page_preview=True)
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +242,7 @@ async def post_init(application):
         BotCommand("calendar", "Today's high-impact economic events"),
         BotCommand("price",    "Get live price: /price EURUSD"),
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
+        BotCommand("heatmap",  "Market pressure — which pairs are most active"),
         BotCommand("help",     "How to use PipMercy"),
     ])
 
@@ -248,6 +262,7 @@ def main():
     app.add_handler(CommandHandler("trades",   trades))
     app.add_handler(CommandHandler("news",     news_command))
     app.add_handler(CommandHandler("calendar", calendar_command))
+    app.add_handler(CommandHandler("heatmap",  heatmap_command))
     app.add_handler(CommandHandler("price",    price_command))
     app.add_handler(CommandHandler("close",    close_command))
     app.add_handler(CommandHandler("help",     help_command))
