@@ -22,6 +22,15 @@ PAIR_SYMBOLS = {
 _BASE_URL = "https://api.twelvedata.com/price"
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
 
+_session: aiohttp.ClientSession = None
+
+
+async def get_session() -> aiohttp.ClientSession:
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession(timeout=_TIMEOUT)
+    return _session
+
 
 def _normalize(pair: str) -> str:
     """Return uppercase pair key without slash, e.g. 'EUR/USD' → 'EURUSD'."""
@@ -38,11 +47,11 @@ async def get_price(pair: str) -> dict:
     symbol = PAIR_SYMBOLS[normalized]
 
     try:
-        async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
-            async with session.get(
-                _BASE_URL, params={"symbol": symbol, "apikey": TWELVE_DATA_KEY}
-            ) as resp:
-                data = await resp.json()
+        session = await get_session()
+        async with session.get(
+            _BASE_URL, params={"symbol": symbol, "apikey": TWELVE_DATA_KEY}
+        ) as resp:
+            data = await resp.json()
 
         if data.get("status") == "error":
             return {"error": data.get("message", f"API error for {normalized}")}

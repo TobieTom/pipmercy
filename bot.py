@@ -1,6 +1,8 @@
 import datetime
+import logging
+import time
 
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.constants import ChatAction
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,6 +13,7 @@ from telegram.ext import (
 )
 
 import agent
+import prices
 from agent import process_message
 from calendar_alerts import fetch_today_events, format_calendar_message, check_upcoming_and_alert
 from config import TELEGRAM_TOKEN, CHAT_ID
@@ -18,7 +21,19 @@ from database import init_db
 from journal import get_weekly_summary, format_weekly_summary
 from news import fetch_news, summarize_with_groq, format_news_message
 
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("pipmercy.log"),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger(__name__)
+
 _MAX_MSG = 4096
+_last_message_time: dict = {}
+COOLDOWN_SECONDS = 3
 
 
 def _split(text: str) -> list[str]:
@@ -109,6 +124,27 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
 
+async def close_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if not args:
+        await update.message.reply_text(
+            "Usage: /close <trade_id> <win|loss> [pnl]\nExample: /close 3 win 1.20"
+        )
+        return
+    msg = f"close trade {' '.join(args)}"
+    response = await agent.process_message(msg)
+    await update.message.reply_text(response)
+
+
+async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Usage: /price EURUSD\nExample: /price XAUUSD")
+        return
+    pair = context.args[0].upper()
+    price_data = await prices.get_price(pair)
+    await update.message.reply_text(prices.format_price_message(price_data))
+
+
 # ---------------------------------------------------------------------------
 # Message handler
 # ---------------------------------------------------------------------------
@@ -116,6 +152,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat_id != CHAT_ID:
         return
+
+    user_id = update.message.from_user.id
+    now = time.time()
+    if now - _last_message_time.get(user_id, 0) < COOLDOWN_SECONDS:
+        await update.message.reply_text("⏳ Give me a second to think... send that again!")
+        return
+    _last_message_time[user_id] = now
 
     try:
         await context.bot.send_chat_action(
@@ -129,16 +172,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------------------------------------------------------------------
+# Error handler
+# ---------------------------------------------------------------------------
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logger.error(f"Exception while handling update: {context.error}")
+    if update and hasattr(update, "message") and update.message:
+        await update.message.reply_text(
+            "⚠️ Something went wrong on my end. Try again in a moment!"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Scheduled jobs
 # ---------------------------------------------------------------------------
 
 async def morning_briefing(context: ContextTypes.DEFAULT_TYPE):
     events = await fetch_today_events()
     calendar_msg = format_calendar_message(events, title="📅 High-Impact Events")
-
     articles = await fetch_news(limit=8)
     news_summary = await summarize_with_groq(articles)
-
     msg = (
         "🌅 Good morning Mercy!\n"
         "Here's your market briefing for today:\n\n"
@@ -167,37 +220,53 @@ async def news_digest(context: ContextTypes.DEFAULT_TYPE):
 # Main
 # ---------------------------------------------------------------------------
 
+async def post_init(application):
+    await application.bot.set_my_commands([
+        BotCommand("start",    "Welcome message and feature overview"),
+        BotCommand("summary",  "This week's trading performance"),
+        BotCommand("trades",   "View your open trades"),
+        BotCommand("news",     "Latest forex market news"),
+        BotCommand("calendar", "Today's high-impact economic events"),
+        BotCommand("price",    "Get live price: /price EURUSD"),
+        BotCommand("close",    "Close a trade: /close 3 win 1.20"),
+        BotCommand("help",     "How to use PipMercy"),
+    ])
+
+
 def main():
     init_db()
 
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = (
+        ApplicationBuilder()
+        .token(TELEGRAM_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start",    start))
     app.add_handler(CommandHandler("summary",  summary))
     app.add_handler(CommandHandler("trades",   trades))
     app.add_handler(CommandHandler("news",     news_command))
     app.add_handler(CommandHandler("calendar", calendar_command))
+    app.add_handler(CommandHandler("price",    price_command))
+    app.add_handler(CommandHandler("close",    close_command))
     app.add_handler(CommandHandler("help",     help_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_error_handler(error_handler)
 
     jq = app.job_queue
 
-    # Morning briefing: 06:00 UTC daily
     jq.run_daily(
         morning_briefing,
         time=datetime.time(6, 0, 0, tzinfo=datetime.timezone.utc),
         name="morning_briefing",
     )
-
-    # Calendar alert: every 30 minutes
     jq.run_repeating(
         calendar_check,
         interval=1800,
         first=60,
         name="calendar_check",
     )
-
-    # News digest: every 4 hours
     jq.run_repeating(
         news_digest,
         interval=14400,
