@@ -356,6 +356,102 @@ def get_today_summary() -> dict:
     }
 
 
+def get_open_exposure() -> dict:
+    """Analyze currency concentration risk across all open trades."""
+    trades = get_open_trades()
+
+    currency_data: dict = {}
+
+    for t in trades:
+        pair = t["pair"].upper()
+        if pair.startswith("XAU"):
+            base, quote = "XAU", pair[3:]
+        elif len(pair) == 6:
+            base, quote = pair[:3], pair[3:]
+        else:
+            base, quote = pair, ""
+
+        risk = t.get("risk_amount") or 0.0
+
+        for currency in filter(None, [base, quote]):
+            if currency not in currency_data:
+                currency_data[currency] = {"trade_count": 0, "risk_amount": 0.0, "pairs": []}
+            currency_data[currency]["trade_count"] += 1
+            currency_data[currency]["risk_amount"] = round(
+                currency_data[currency]["risk_amount"] + risk, 2
+            )
+            if pair not in currency_data[currency]["pairs"]:
+                currency_data[currency]["pairs"].append(pair)
+
+    total_risk = round(sum(t.get("risk_amount") or 0.0 for t in trades), 2)
+
+    overexposed = [
+        {"currency": c, **data}
+        for c, data in currency_data.items()
+        if data["trade_count"] > 2
+    ]
+
+    if currency_data:
+        max_currency = max(currency_data, key=lambda c: currency_data[c]["trade_count"])
+        max_count = currency_data[max_currency]["trade_count"]
+    else:
+        max_currency = ""
+        max_count = 0
+
+    return {
+        "open_trades": len(trades),
+        "total_risk": total_risk,
+        "currency_exposure": currency_data,
+        "overexposed": overexposed,
+        "max_single_currency": max_currency,
+        "max_count": max_count,
+    }
+
+
+def format_exposure_message(exposure: dict) -> str:
+    if exposure["open_trades"] == 0:
+        return "📊 No open trades — exposure is clear."
+
+    open_n = exposure["open_trades"]
+    total = exposure["total_risk"]
+    overexposed = exposure["overexposed"]
+    all_currencies = exposure["currency_exposure"]
+
+    if not overexposed:
+        lines = [
+            "📊 *Exposure Report*",
+            f"Open trades: {open_n} | Total at risk: ${total:.2f}",
+            "✅ All currencies within normal exposure limits.",
+        ]
+        return "\n".join(lines)
+
+    lines = [
+        "📊 *Currency Exposure Report*\n",
+        f"Open trades: {open_n} | Total at risk: ${total:.2f}",
+        "\n⚠️ *Overexposed:*",
+    ]
+    overexposed_set = {o["currency"] for o in overexposed}
+    for o in overexposed:
+        pairs_str = ", ".join(o["pairs"])
+        lines.append(f"🔴 {o['currency']} — {o['trade_count']} trades (${o['risk_amount']:.2f} at risk)")
+        lines.append(f"   Pairs: {pairs_str}")
+
+    normal = {c: d for c, d in all_currencies.items() if c not in overexposed_set}
+    if normal:
+        lines.append("\n✅ *Normal exposure:*")
+        for currency, data in sorted(normal.items()):
+            count = data["trade_count"]
+            lines.append(f"🟢 {currency} — {count} trade{'s' if count != 1 else ''} (${data['risk_amount']:.2f})")
+
+    if len(overexposed) == 1:
+        lines.append(f"\n💡 Consider closing one {overexposed[0]['currency']} position to reduce concentration risk.")
+    else:
+        currencies = ", ".join(o["currency"] for o in overexposed)
+        lines.append(f"\n💡 Consider reducing concentration risk on: {currencies}.")
+
+    return "\n".join(lines)
+
+
 def _pnl_str(pnl: float) -> str:
     if pnl > 0:
         return f"+${pnl:.2f}"

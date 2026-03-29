@@ -95,26 +95,27 @@ def check_position_size(lot_size_micro: float, balance: float) -> dict:
 
 
 def check_currency_exposure(pair: str) -> dict:
-    """Warn if the same currency is already in multiple open trades."""
+    """Warn if adding this pair would increase concentration on already-exposed currencies."""
     try:
-        base, quote = _currencies_in_pair(pair)
-        open_trades = get_open_trades()
-        count = 0
-        exposed_currency = base
-        for t in open_trades:
-            t_base, t_quote = _currencies_in_pair(t["pair"])
-            if base in (t_base, t_quote):
-                count += 1
-                exposed_currency = base
-            elif quote and quote in (t_base, t_quote):
-                count += 1
-                exposed_currency = quote
-        if count > 1:
+        from journal import get_open_exposure
+        exposure = get_open_exposure()
+
+        base = pair[:3]
+        quote = pair[3:] if len(pair) == 6 else "USD"
+
+        warnings = []
+        for currency in [base, quote]:
+            if currency in exposure["currency_exposure"]:
+                count = exposure["currency_exposure"][currency]["trade_count"]
+                if count >= 2:
+                    warnings.append(f"{currency} ({count} existing trades)")
+
+        if warnings:
             return {
                 "passed": False,
                 "message": (
-                    f"🔄 You already have {count} open trades involving {exposed_currency}. "
-                    f"Adding another increases your exposure to that currency significantly."
+                    f"🔄 High {'/'.join(warnings)} exposure. "
+                    f"Adding {pair} increases concentration risk on these currencies."
                 ),
             }
         return {"passed": True, "message": ""}

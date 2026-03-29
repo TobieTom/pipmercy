@@ -315,3 +315,33 @@ client_session: <aiohttp.client.ClientSession object at 0x7c7dc9a2e3c0>
 2026-03-29 02:26:07,563 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
 2026-03-29 02:26:07,563 - apscheduler.scheduler - INFO - Scheduler has been shut down
 2026-03-29 02:26:07,574 - telegram.ext.Application - INFO - Application.stop() complete
+2026-03-29 02:57:06,516 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:57:06,518 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:57:06,518 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:57:06,519 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:57:07,851 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getMe "HTTP/1.1 200 OK"
+2026-03-29 02:57:08,232 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/setMyCommands "HTTP/1.1 200 OK"
+2026-03-29 02:57:08,429 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/deleteWebhook "HTTP/1.1 200 OK"
+2026-03-29 02:57:08,430 - apscheduler.scheduler - INFO - Added job "morning_briefing" to job store "default"
+2026-03-29 02:57:08,430 - apscheduler.scheduler - INFO - Added job "calendar_check" to job store "default"
+2026-03-29 02:57:08,431 - apscheduler.scheduler - INFO - Added job "news_digest" to job store "default"
+2026-03-29 02:57:08,431 - apscheduler.scheduler - INFO - Added job "daily_pnl_push" to job store "default"
+2026-03-29 02:57:08,431 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-29 02:57:08,431 - telegram.ext.Application - INFO - Application started
+2026-03-29 02:57:17,263 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 02:57:17,265 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2026-03-29 02:57:17,266 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-03-29 02:57:17,276 - telegram.ext.Application - INFO - Application.stop() complete
+2026-03-29 02:58:10,370 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:58:10,371 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:58:10,371 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:58:10,371 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 02:58:14,758 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getMe "HTTP/1.1 200 OK"
+2026-03-29 02:58:15,455 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/setMyCommands "HTTP/1.1 200 OK"
+2026-03-29 02:58:15,669 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/deleteWebhook "HTTP/1.1 200 OK"
+2026-03-29 02:58:15,671 - apscheduler.scheduler - INFO - Added job "morning_briefing" to job store "default"
+2026-03-29 02:58:15,671 - apscheduler.scheduler - INFO - Added job "calendar_check" to job store "default"
+2026-03-29 02:58:15,671 - apscheduler.scheduler - INFO - Added job "news_digest" to job store "default"
+2026-03-29 02:58:15,672 - apscheduler.scheduler - INFO - Added job "daily_pnl_push" to job store "default"
+2026-03-29 02:58:15,672 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-29 02:58:15,672 - telegram.ext.Application - INFO - Application started

@@ -278,6 +278,18 @@ async def review_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(review, disable_web_page_preview=True)
 
 
+async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    exposure = journal_module.get_open_exposure()
+    message = journal_module.format_exposure_message(exposure)
+    await update.message.reply_text(
+        message,
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+    )
+
+
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usage: /price EURUSD\nExample: /price XAUUSD")
@@ -342,6 +354,15 @@ async def morning_briefing(context: ContextTypes.DEFAULT_TYPE):
         f"{news_summary}\n\n"
         "Trade safe and stick to your plan! 💪"
     )
+
+    try:
+        exposure = journal_module.get_open_exposure()
+        if exposure["overexposed"]:
+            overexposed_msg = journal_module.format_exposure_message(exposure)
+            msg += f"\n\n⚠️ *Exposure Alert*\n{overexposed_msg}"
+    except Exception:
+        pass
+
     await _send(context.bot, CHAT_ID, msg, disable_web_page_preview=True)
 
 
@@ -387,6 +408,7 @@ async def post_init(application):
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
         BotCommand("heatmap",  "Market pressure — which pairs are most active"),
         BotCommand("pair",     "Pair intelligence: /pair EURUSD"),
+        BotCommand("exposure",  "Currency exposure across open trades"),
         BotCommand("session",   "Current market session and best pairs to trade"),
         BotCommand("today",     "Today's P&L and open positions summary"),
         BotCommand("checklist", "Pre-trade risk check: /checklist EURUSD BUY 1.08 1.075"),
@@ -413,6 +435,7 @@ def main():
     app.add_handler(CommandHandler("calendar", calendar_command))
     app.add_handler(CommandHandler("heatmap",  heatmap_command))
     app.add_handler(CommandHandler("pair",     pair_command))
+    app.add_handler(CommandHandler("exposure",  exposure_command))
     app.add_handler(CommandHandler("price",    price_command))
     app.add_handler(CommandHandler("session",   session_command))
     app.add_handler(CommandHandler("today",     today_command))
