@@ -173,6 +173,12 @@ async def handle_log_trade(data: dict) -> str:
     if "error" in result:
         return f"❌ {result['error']}"
 
+    try:
+        import streaks
+        streaks.update_today_streak(traded=True)
+    except Exception:
+        pass
+
     position_msg = calculator.format_position_message(
         pair, direction, entry, sl, float(tp) if tp is not None else None,
         balance, risk_percent,
@@ -207,7 +213,36 @@ async def handle_close_trade(data: dict) -> str:
         return f"❌ {result['error']}"
 
     trade = journal.get_trade_by_id(int(trade_id))
-    return f"{result['message']}\n\n{journal.format_trade_card(trade)}"
+    close_confirmation = f"{result['message']}\n\n{journal.format_trade_card(trade)}"
+
+    try:
+        import streaks
+        risk_ok = True
+        if trade and trade.get("pnl") and trade.get("risk_amount"):
+            if abs(trade["pnl"]) > trade["risk_amount"] * 1.2 and trade["outcome"] == "LOSS":
+                risk_ok = False
+        streaks.update_today_streak(journaled=True, respected_risk=risk_ok)
+    except Exception:
+        pass
+
+    review = ""
+    try:
+        from coach import generate_trade_review
+        review = await generate_trade_review(int(trade_id))
+    except Exception:
+        pass
+
+    response = f"{close_confirmation}\n\n{review}" if review else close_confirmation
+
+    try:
+        import streaks as _streaks
+        warning = _streaks.check_and_warn_loss_streak()
+        if warning:
+            response = response + f"\n\n{warning}"
+    except Exception:
+        pass
+
+    return response
 
 
 async def handle_check_price(data: dict) -> str:

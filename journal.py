@@ -257,11 +257,58 @@ def format_weekly_summary(summary: dict) -> str:
         f"💀 Worst trade: {worst_str}",
         random.choice(_MOTIVATIONAL),
     ]
+
+    try:
+        from streaks import get_discipline_score
+        sd = get_discipline_score(7)
+        lines.append(
+            f"\n📊 Discipline Score: {sd['score']}/100 — {sd['grade']}\n{sd['feedback']}"
+        )
+    except Exception:
+        pass
+
     return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
 # Settings
+def get_trade_context(trade_id: int) -> dict:
+    """Return a closed trade plus lifetime and pair-level performance stats."""
+    conn = get_db()
+
+    trade_row = conn.execute("SELECT * FROM trades WHERE id = ?", (trade_id,)).fetchone()
+    trade = dict(trade_row) if trade_row else None
+
+    closed = conn.execute(
+        "SELECT * FROM trades WHERE outcome IN ('WIN','LOSS')"
+    ).fetchall()
+    closed = [dict(r) for r in closed]
+
+    wins = sum(1 for t in closed if t["outcome"] == "WIN")
+    losses = len(closed) - wins
+    win_rate = round((wins / len(closed)) * 100, 1) if closed else 0.0
+    rr_values = [t["risk_reward"] for t in closed if t["risk_reward"] is not None]
+    avg_rr = round(sum(rr_values) / len(rr_values), 2) if rr_values else 0.0
+
+    pair = trade["pair"] if trade else None
+    same_pair = [t for t in closed if t["pair"] == pair] if pair else []
+    same_pair_wins = sum(1 for t in same_pair if t["outcome"] == "WIN")
+    same_pair_win_rate = round((same_pair_wins / len(same_pair)) * 100, 1) if same_pair else 0.0
+
+    conn.close()
+    return {
+        "trade":               trade,
+        "total_closed_trades": len(closed),
+        "wins":                wins,
+        "losses":              losses,
+        "win_rate":            win_rate,
+        "avg_rr":              avg_rr,
+        "same_pair_trades":    len(same_pair),
+        "same_pair_wins":      same_pair_wins,
+        "same_pair_win_rate":  same_pair_win_rate,
+    }
+
+
 # ---------------------------------------------------------------------------
 
 def get_settings() -> dict:

@@ -13,7 +13,10 @@ from telegram.ext import (
 )
 
 import agent
+import coach
+import journal as journal_module
 import prices
+import streaks
 from agent import process_message
 from calendar_alerts import fetch_today_events, format_calendar_message, check_upcoming_and_alert
 from config import TELEGRAM_TOKEN, CHAT_ID
@@ -173,6 +176,37 @@ async def pair_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await loading.edit_text(message, disable_web_page_preview=True)
 
 
+async def streak_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    message = streaks.format_streak_message()
+    await update.message.reply_text(message, disable_web_page_preview=True)
+
+
+async def review_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    if not context.args:
+        trades = journal_module.get_all_trades(limit=10)
+        closed = [t for t in trades if t["outcome"] != "OPEN"]
+        if not closed:
+            await update.message.reply_text("No closed trades to review yet.")
+            return
+        trade_id = closed[0]["id"]
+    else:
+        try:
+            trade_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("Usage: /review or /review <trade_id>")
+            return
+    await context.bot.send_chat_action(chat_id=update.message.chat_id, action=ChatAction.TYPING)
+    review = await coach.generate_trade_review(trade_id)
+    if not review:
+        await update.message.reply_text("⚠️ Could not generate review right now.")
+        return
+    await update.message.reply_text(review, disable_web_page_preview=True)
+
+
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usage: /price EURUSD\nExample: /price XAUUSD")
@@ -268,6 +302,8 @@ async def post_init(application):
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
         BotCommand("heatmap",  "Market pressure — which pairs are most active"),
         BotCommand("pair",     "Pair intelligence: /pair EURUSD"),
+        BotCommand("streak",   "Your discipline streak and score"),
+        BotCommand("review",   "AI trade review: /review or /review 3"),
         BotCommand("help",     "How to use PipMercy"),
     ])
 
@@ -290,6 +326,8 @@ def main():
     app.add_handler(CommandHandler("heatmap",  heatmap_command))
     app.add_handler(CommandHandler("pair",     pair_command))
     app.add_handler(CommandHandler("price",    price_command))
+    app.add_handler(CommandHandler("streak",   streak_command))
+    app.add_handler(CommandHandler("review",   review_command))
     app.add_handler(CommandHandler("close",    close_command))
     app.add_handler(CommandHandler("help",     help_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
