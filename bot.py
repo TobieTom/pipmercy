@@ -23,7 +23,7 @@ from calendar_alerts import fetch_today_events, format_calendar_message, check_u
 from config import TELEGRAM_TOKEN, CHAT_ID
 from database import init_db
 from config import DEFAULT_BALANCE, DEFAULT_RISK_PERCENT
-from journal import get_weekly_summary, format_weekly_summary
+from journal import get_weekly_summary, format_weekly_summary, get_today_summary, format_daily_summary
 import calculator
 import news as news_module
 from news import fetch_news, summarize_with_groq, format_news_message, analyze_market_pressure, format_heatmap_message
@@ -179,6 +179,18 @@ async def pair_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await loading.edit_text(message, disable_web_page_preview=True)
 
 
+async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    summary = get_today_summary()
+    message = format_daily_summary(summary)
+    await update.message.reply_text(
+        message,
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+    )
+
+
 async def checklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat_id != CHAT_ID:
         return
@@ -332,6 +344,20 @@ async def news_digest(context: ContextTypes.DEFAULT_TYPE):
     await _send(context.bot, CHAT_ID, result, disable_web_page_preview=True)
 
 
+async def daily_pnl_push(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        summary = get_today_summary()
+        message = format_daily_summary(summary)
+        await context.bot.send_message(
+            chat_id=CHAT_ID,
+            text=message,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        logger.error(f"Daily P&L push failed: {e}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -347,6 +373,7 @@ async def post_init(application):
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
         BotCommand("heatmap",  "Market pressure — which pairs are most active"),
         BotCommand("pair",     "Pair intelligence: /pair EURUSD"),
+        BotCommand("today",     "Today's P&L and open positions summary"),
         BotCommand("checklist", "Pre-trade risk check: /checklist EURUSD BUY 1.08 1.075"),
         BotCommand("streak",   "Your discipline streak and score"),
         BotCommand("review",   "AI trade review: /review or /review 3"),
@@ -372,6 +399,7 @@ def main():
     app.add_handler(CommandHandler("heatmap",  heatmap_command))
     app.add_handler(CommandHandler("pair",     pair_command))
     app.add_handler(CommandHandler("price",    price_command))
+    app.add_handler(CommandHandler("today",     today_command))
     app.add_handler(CommandHandler("checklist", checklist_command))
     app.add_handler(CommandHandler("streak",   streak_command))
     app.add_handler(CommandHandler("review",   review_command))
@@ -398,6 +426,11 @@ def main():
         interval=14400,
         first=300,
         name="news_digest",
+    )
+    jq.run_daily(
+        daily_pnl_push,
+        time=datetime.time(19, 0, 0, tzinfo=datetime.timezone.utc),
+        name="daily_pnl_push",
     )
 
     print("PipMercy is running... 🚀")

@@ -270,6 +270,152 @@ def format_weekly_summary(summary: dict) -> str:
     return "\n".join(lines)
 
 
+_DAILY_MOTIVATIONAL = [
+    "🌙 Rest well. Tomorrow's opportunities will come.",
+    "🌙 Good session. Reset and come back sharper tomorrow.",
+    "💤 Every day is a new edge. See you tomorrow.",
+    "🌟 Small steps every day. You're building something real.",
+    "🛌 Log off, recharge. The market will be here tomorrow.",
+]
+
+_NO_TRADES_MOTIVATIONAL = [
+    "💡 Consistency beats intensity — show up tomorrow.",
+    "📆 No trades is sometimes the right trade. See you tomorrow.",
+    "⏳ Patience is a strategy. Tomorrow brings new setups.",
+    "🧘 Rest days matter too. Come back fresh.",
+    "💡 Protecting capital on slow days is a skill. Well done.",
+]
+
+
+def get_today_summary() -> dict:
+    """Return trade stats for today (opened or closed today)."""
+    conn = get_db()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    opened_today = conn.execute(
+        "SELECT * FROM trades WHERE created_at LIKE ?", (f"{today}%",)
+    ).fetchall()
+    opened_today = [dict(r) for r in opened_today]
+
+    closed_today = conn.execute(
+        "SELECT * FROM trades WHERE closed_at LIKE ? AND outcome IN ('WIN','LOSS')",
+        (f"{today}%",),
+    ).fetchall()
+    closed_today = [dict(r) for r in closed_today]
+
+    open_trades_all = conn.execute(
+        "SELECT * FROM trades WHERE outcome = 'OPEN'"
+    ).fetchall()
+    open_trades_all = [dict(r) for r in open_trades_all]
+
+    # Weekly P&L (Mon 00:00 UTC to now)
+    now = datetime.now(timezone.utc)
+    monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    monday_str = monday.strftime("%Y-%m-%d %H:%M:%S")
+    weekly_closed = conn.execute(
+        "SELECT * FROM trades WHERE outcome IN ('WIN','LOSS') AND created_at >= ?",
+        (monday_str,),
+    ).fetchall()
+    weekly_closed = [dict(r) for r in weekly_closed]
+    conn.close()
+
+    wins_today   = sum(1 for t in closed_today if t["outcome"] == "WIN")
+    losses_today = len(closed_today) - wins_today
+    pnl_today    = round(sum(t["pnl"] for t in closed_today if t["pnl"] is not None), 2)
+    open_exposure = round(
+        sum(t["risk_amount"] for t in open_trades_all if t["risk_amount"] is not None), 2
+    )
+    weekly_pnl = round(
+        sum(t["pnl"] for t in weekly_closed if t["pnl"] is not None), 2
+    )
+
+    best_today = (
+        max(closed_today, key=lambda t: (t["pnl"] or 0))
+        if closed_today else None
+    )
+    worst_today = (
+        min(closed_today, key=lambda t: (t["pnl"] or 0))
+        if closed_today else None
+    )
+
+    return {
+        "date":           now.strftime("%-d %b %Y"),
+        "trades_opened":  len(opened_today),
+        "trades_closed":  len(closed_today),
+        "wins_today":     wins_today,
+        "losses_today":   losses_today,
+        "pnl_today":      pnl_today,
+        "open_trades":    len(open_trades_all),
+        "open_exposure":  open_exposure,
+        "weekly_pnl":     weekly_pnl,
+        "weekly_trades":  len(weekly_closed),
+        "best_today":     best_today,
+        "worst_today":    worst_today,
+    }
+
+
+def _pnl_str(pnl: float) -> str:
+    if pnl > 0:
+        return f"+${pnl:.2f}"
+    if pnl < 0:
+        return f"-${abs(pnl):.2f}"
+    return "±$0.00"
+
+
+def format_daily_summary(summary: dict) -> str:
+    """Format today's P&L report for Telegram."""
+    date = summary.get("date", "Today")
+    open_n = summary.get("open_trades", 0)
+    weekly_pnl = summary.get("weekly_pnl", 0.0)
+    weekly_n = summary.get("weekly_trades", 0)
+
+    if summary.get("trades_closed", 0) == 0 and summary.get("trades_opened", 0) == 0:
+        weekly_str = _pnl_str(weekly_pnl)
+        return (
+            f"📊 *Daily Report — {date}*\n\n"
+            f"No trades logged today.\n\n"
+            f"📂 Open positions: {open_n}\n"
+            f"📅 This week so far: {weekly_str} ({weekly_n} trades)\n\n"
+            f"─────────────────\n"
+            f"{random.choice(_NO_TRADES_MOTIVATIONAL)}"
+        )
+
+    pnl = summary["pnl_today"]
+    wins = summary["wins_today"]
+    losses = summary["losses_today"]
+    closed = summary["trades_closed"]
+    exposure = summary["open_exposure"]
+    weekly_str = _pnl_str(weekly_pnl)
+
+    best = summary.get("best_today")
+    worst = summary.get("worst_today")
+    best_str = (
+        f"{best['pair']} {best['direction']} {_pnl_str(best['pnl'])}"
+        if best and best.get("pnl") is not None else "—"
+    )
+    worst_str = (
+        f"{worst['pair']} {worst['direction']} {_pnl_str(worst['pnl'])}"
+        if worst and worst.get("pnl") is not None else "—"
+    )
+
+    return (
+        f"📊 *Daily Trading Report — {date}*\n\n"
+        f"💰 *Today's P&L: {_pnl_str(pnl)}*\n"
+        f"✅ {wins} win{'s' if wins != 1 else ''}  |  "
+        f"❌ {losses} loss{'es' if losses != 1 else ''}  |  "
+        f"{closed} trade{'s' if closed != 1 else ''} closed\n\n"
+        f"📈 Best trade: {best_str}\n"
+        f"📉 Worst trade: {worst_str}\n\n"
+        f"📂 *Open positions: {open_n}*\n"
+        f"⚠️ At-risk capital: ${exposure:.2f}\n\n"
+        f"📅 *This week so far: {weekly_str}* ({weekly_n} trades)\n\n"
+        f"─────────────────\n"
+        f"{random.choice(_DAILY_MOTIVATIONAL)}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Settings
 def get_trade_context(trade_id: int) -> dict:
