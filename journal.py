@@ -452,6 +452,232 @@ def format_exposure_message(exposure: dict) -> str:
     return "\n".join(lines)
 
 
+def get_monthly_summary(year: int = None, month: int = None) -> dict:
+    """Return closed-trade stats for the given month (defaults to previous month)."""
+    import calendar as _cal
+    now = datetime.now(timezone.utc)
+
+    if year is None or month is None:
+        first_of_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        prev = first_of_this - timedelta(seconds=1)
+        year, month = prev.year, prev.month
+
+    month_prefix = f"{year:04d}-{month:02d}-"
+    month_name = datetime(year, month, 1).strftime("%B %Y")
+    days_in_month = _cal.monthrange(year, month)[1]
+
+    conn = get_db()
+    closed = conn.execute(
+        "SELECT * FROM trades WHERE outcome IN ('WIN','LOSS') AND closed_at LIKE ?",
+        (f"{month_prefix}%",),
+    ).fetchall()
+    closed = [dict(r) for r in closed]
+    conn.close()
+
+    empty = {
+        "month_name": month_name,
+        "year": year,
+        "month": month,
+        "days_in_month": days_in_month,
+        "total_trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "win_rate": 0.0,
+        "total_pnl": 0.0,
+        "avg_pnl_per_trade": 0.0,
+        "avg_rr": 0.0,
+        "best_trade": None,
+        "worst_trade": None,
+        "most_traded_pair": None,
+        "best_pair": None,
+        "worst_pair": None,
+        "pair_breakdown": {},
+        "trading_days": 0,
+        "avg_trades_per_day": 0.0,
+        "discipline_score": None,
+    }
+    if not closed:
+        return empty
+
+    total = len(closed)
+    wins = sum(1 for t in closed if t["outcome"] == "WIN")
+    losses = total - wins
+    win_rate = round((wins / total) * 100, 1)
+
+    pnl_values = [t["pnl"] for t in closed if t["pnl"] is not None]
+    total_pnl = round(sum(pnl_values), 2)
+    avg_pnl = round(total_pnl / total, 2)
+
+    rr_values = [t["risk_reward"] for t in closed if t["risk_reward"] is not None]
+    avg_rr = round(sum(rr_values) / len(rr_values), 2) if rr_values else 0.0
+
+    best = max(closed, key=lambda t: (t["pnl"] or 0))
+    worst = min(closed, key=lambda t: (t["pnl"] or 0))
+
+    pair_breakdown: dict = {}
+    for t in closed:
+        p = t["pair"]
+        if p not in pair_breakdown:
+            pair_breakdown[p] = {"trades": 0, "wins": 0, "losses": 0, "pnl": 0.0}
+        pair_breakdown[p]["trades"] += 1
+        if t["outcome"] == "WIN":
+            pair_breakdown[p]["wins"] += 1
+        else:
+            pair_breakdown[p]["losses"] += 1
+        pair_breakdown[p]["pnl"] = round(pair_breakdown[p]["pnl"] + (t["pnl"] or 0.0), 2)
+
+    most_traded_pair = max(pair_breakdown, key=lambda p: pair_breakdown[p]["trades"])
+    best_pair = max(pair_breakdown, key=lambda p: pair_breakdown[p]["pnl"])
+    worst_pair = min(pair_breakdown, key=lambda p: pair_breakdown[p]["pnl"])
+
+    trading_days_set = {t["closed_at"][:10] for t in closed if t.get("closed_at")}
+    trading_days = len(trading_days_set)
+    avg_trades_per_day = round(total / trading_days, 1) if trading_days else 0.0
+
+    discipline_score = None
+    try:
+        from streaks import get_discipline_score
+        discipline_score = get_discipline_score(30)
+    except Exception:
+        pass
+
+    return {
+        "month_name": month_name,
+        "year": year,
+        "month": month,
+        "days_in_month": days_in_month,
+        "total_trades": total,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": win_rate,
+        "total_pnl": total_pnl,
+        "avg_pnl_per_trade": avg_pnl,
+        "avg_rr": avg_rr,
+        "best_trade": best,
+        "worst_trade": worst,
+        "most_traded_pair": most_traded_pair,
+        "best_pair": best_pair,
+        "worst_pair": worst_pair,
+        "pair_breakdown": pair_breakdown,
+        "trading_days": trading_days,
+        "avg_trades_per_day": avg_trades_per_day,
+        "discipline_score": discipline_score,
+    }
+
+
+def format_monthly_report(summary: dict) -> str:
+    """Format the monthly performance report, including a Groq coaching insight."""
+    import json
+
+    month_name = summary["month_name"]
+
+    if summary["total_trades"] == 0:
+        return (
+            f"📅 *Monthly Report — {month_name}*\n\n"
+            f"No closed trades recorded this month.\n\n"
+            f"Start logging your trades and this report will track your progress automatically! 📝"
+        )
+
+    SEP = "━━━━━━━━━━━━━━━━━━━━"
+
+    total = summary["total_trades"]
+    wins = summary["wins"]
+    losses = summary["losses"]
+    win_rate = summary["win_rate"]
+    total_pnl = summary["total_pnl"]
+    avg_pnl = summary["avg_pnl_per_trade"]
+    avg_rr = summary["avg_rr"]
+
+    def _s(v):
+        return f"+${v:.2f}" if v >= 0 else f"-${abs(v):.2f}"
+
+    best = summary["best_trade"]
+    worst = summary["worst_trade"]
+    best_str = (
+        f"{best['pair']} {best['direction']} {_s(best['pnl'])}"
+        if best and best.get("pnl") is not None else "—"
+    )
+    worst_str = (
+        f"{worst['pair']} {worst['direction']} {_s(worst['pnl'])}"
+        if worst and worst.get("pnl") is not None else "—"
+    )
+
+    lines = [
+        f"📅 *Monthly Report — {month_name}*\n",
+        SEP,
+        "📊 *Performance Overview*",
+        f"Trades: {total} | Win Rate: {win_rate}%",
+        f"Net P&L: {_s(total_pnl)} | Avg/trade: {_s(avg_pnl)}",
+        f"Avg R:R: 1:{avg_rr:.2f}",
+        "",
+        f"📈 Best trade: {best_str}",
+        f"📉 Worst trade: {worst_str}",
+    ]
+
+    pair_breakdown = summary["pair_breakdown"]
+    if pair_breakdown:
+        lines += ["", SEP, "🔍 *Pair Breakdown*"]
+        for pair, stats in sorted(pair_breakdown.items(), key=lambda x: -x[1]["trades"]):
+            pnl_part = _s(stats["pnl"])
+            lines.append(
+                f"{pair:<10} {stats['trades']} trades | "
+                f"{stats['wins']}W {stats['losses']}L | {pnl_part}"
+            )
+
+    best_pair = summary["best_pair"]
+    worst_pair = summary["worst_pair"]
+    lines += ["", SEP]
+    if best_pair and best_pair in pair_breakdown:
+        lines.append(f"🏆 *Best pair: {best_pair}* ({_s(pair_breakdown[best_pair]['pnl'])})")
+    if worst_pair and worst_pair in pair_breakdown and worst_pair != best_pair:
+        lines.append(
+            f"⚠️ *Weakest pair: {worst_pair}* ({_s(pair_breakdown[worst_pair]['pnl'])}) "
+            f"— consider reviewing your {worst_pair[:3]} setups"
+        )
+
+    trading_days = summary["trading_days"]
+    days_in_month = summary["days_in_month"]
+    avg_tpd = summary["avg_trades_per_day"]
+    lines += ["", SEP, "📆 *Consistency*"]
+    lines.append(f"Active days: {trading_days}/{days_in_month}")
+    lines.append(f"Avg trades/day: {avg_tpd}")
+
+    ds = summary.get("discipline_score")
+    if ds:
+        lines += ["", f"🎓 *Discipline Score: {ds['score']}/100 — {ds['grade']}*", ds["feedback"]]
+
+    groq_insight = (
+        "You've completed another month of trading — review your journal, "
+        "find your edge, and keep building. 💪"
+    )
+    try:
+        from groq import Groq
+        from config import GROQ_API_KEY
+        _client = Groq(api_key=GROQ_API_KEY)
+        resp = _client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are PipMercy, a forex trading coach. Given this trader's monthly stats, "
+                        "give exactly 2 sentences: one celebrating their biggest win or pattern, "
+                        "one identifying the single most important thing to improve next month. "
+                        "Be warm, specific, and beginner-friendly."
+                    ),
+                },
+                {"role": "user", "content": json.dumps(summary, default=str)},
+            ],
+        )
+        groq_insight = resp.choices[0].message.content.strip()
+    except Exception:
+        pass
+
+    lines += ["", SEP, "💬 *Monthly Insight*", groq_insight]
+
+    return "\n".join(lines)
+
+
 def _pnl_str(pnl: float) -> str:
     if pnl > 0:
         return f"+${pnl:.2f}"

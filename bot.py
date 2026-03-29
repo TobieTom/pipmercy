@@ -24,7 +24,11 @@ from calendar_alerts import fetch_today_events, format_calendar_message, check_u
 from config import TELEGRAM_TOKEN, CHAT_ID
 from database import init_db
 from config import DEFAULT_BALANCE, DEFAULT_RISK_PERCENT
-from journal import get_weekly_summary, format_weekly_summary, get_today_summary, format_daily_summary
+from journal import (
+    get_weekly_summary, format_weekly_summary,
+    get_today_summary, format_daily_summary,
+    get_monthly_summary, format_monthly_report,
+)
 import calculator
 import news as news_module
 from news import fetch_news, summarize_with_groq, format_news_message, analyze_market_pressure, format_heatmap_message
@@ -278,6 +282,32 @@ async def review_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(review, disable_web_page_preview=True)
 
 
+async def month_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    year, month = None, None
+    if len(context.args) == 2:
+        try:
+            year = int(context.args[0])
+            month = int(context.args[1])
+        except ValueError:
+            pass
+    await context.bot.send_chat_action(
+        chat_id=update.message.chat_id, action=ChatAction.TYPING
+    )
+    loading = await update.message.reply_text(
+        "📅 Generating your monthly report...",
+        disable_web_page_preview=True,
+    )
+    summary = get_monthly_summary(year, month)
+    message = format_monthly_report(summary)
+    await loading.edit_text(
+        message,
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+    )
+
+
 async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat_id != CHAT_ID:
         return
@@ -379,6 +409,22 @@ async def news_digest(context: ContextTypes.DEFAULT_TYPE):
     await _send(context.bot, CHAT_ID, result, disable_web_page_preview=True)
 
 
+async def monthly_report_job(context: ContextTypes.DEFAULT_TYPE):
+    if datetime.datetime.utcnow().day != 1:
+        return
+    try:
+        summary = get_monthly_summary()
+        message = format_monthly_report(summary)
+        await context.bot.send_message(
+            chat_id=CHAT_ID,
+            text=message,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        logger.error(f"Monthly report job failed: {e}")
+
+
 async def daily_pnl_push(context: ContextTypes.DEFAULT_TYPE):
     try:
         summary = get_today_summary()
@@ -408,6 +454,7 @@ async def post_init(application):
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
         BotCommand("heatmap",  "Market pressure — which pairs are most active"),
         BotCommand("pair",     "Pair intelligence: /pair EURUSD"),
+        BotCommand("month",     "Monthly performance report: /month or /month 2026 3"),
         BotCommand("exposure",  "Currency exposure across open trades"),
         BotCommand("session",   "Current market session and best pairs to trade"),
         BotCommand("today",     "Today's P&L and open positions summary"),
@@ -435,6 +482,7 @@ def main():
     app.add_handler(CommandHandler("calendar", calendar_command))
     app.add_handler(CommandHandler("heatmap",  heatmap_command))
     app.add_handler(CommandHandler("pair",     pair_command))
+    app.add_handler(CommandHandler("month",     month_command))
     app.add_handler(CommandHandler("exposure",  exposure_command))
     app.add_handler(CommandHandler("price",    price_command))
     app.add_handler(CommandHandler("session",   session_command))
@@ -470,6 +518,11 @@ def main():
         daily_pnl_push,
         time=datetime.time(19, 0, 0, tzinfo=datetime.timezone.utc),
         name="daily_pnl_push",
+    )
+    jq.run_daily(
+        monthly_report_job,
+        time=datetime.time(7, 0, 0, tzinfo=datetime.timezone.utc),
+        name="monthly_report",
     )
 
     print("PipMercy is running... 🚀")
