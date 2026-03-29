@@ -76,6 +76,8 @@ async def _send(bot_or_obj, chat_id: int, text: str, **kwargs):
 # ---------------------------------------------------------------------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     msg = (
         "👋 Hey Mercy! I'm PipMercy, your personal forex assistant.\n"
         "Here's what I can do:\n\n"
@@ -92,16 +94,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     result = format_weekly_summary(get_weekly_summary())
     await update.message.reply_text(result)
 
 
 async def trades(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     result = await agent.handle_view_trades({"filter": "open"})
     await update.message.reply_text(result)
 
 
 async def news_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     await update.message.reply_text("📰 Fetching latest forex news...")
     articles = await fetch_news(limit=8)
     news_summary = await summarize_with_groq(articles)
@@ -111,12 +119,16 @@ async def news_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def calendar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     events = await fetch_today_events()
     result = format_calendar_message(events, title="📅 Today's High-Impact Events")
     await update.message.reply_text(result)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     msg = (
         "🤖 PipMercy Help\n\n"
         "Just talk to me naturally! Examples:\n\n"
@@ -137,6 +149,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def close_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     args = context.args
     if not args:
         await update.message.reply_text(
@@ -321,6 +335,8 @@ async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
     if not context.args:
         await update.message.reply_text("Usage: /price EURUSD\nExample: /price XAUUSD")
         return

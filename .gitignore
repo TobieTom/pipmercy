@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 *.db
 pipmercy.log
+test_*.py

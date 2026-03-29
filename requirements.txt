@@ -1,5 +1,5 @@
 python-telegram-bot[job-queue]==21.3
-groq
-aiohttp
-feedparser
-python-dotenv
+groq==1.1.2
+aiohttp==3.13.4
+feedparser==6.0.12
+python-dotenv==1.2.2
