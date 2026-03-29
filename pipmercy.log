@@ -132,3 +132,63 @@ client_session: <aiohttp.client.ClientSession object at 0x7c7dc9a2e3c0>
 2026-03-29 00:50:15,492 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
 2026-03-29 00:50:15,492 - apscheduler.scheduler - INFO - Scheduler has been shut down
 2026-03-29 00:50:15,503 - telegram.ext.Application - INFO - Application.stop() complete
+2026-03-29 00:52:00,483 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 00:52:00,484 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 00:52:00,484 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 00:52:01,199 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getMe "HTTP/1.1 200 OK"
+2026-03-29 00:52:01,398 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/setMyCommands "HTTP/1.1 200 OK"
+2026-03-29 00:52:01,595 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/deleteWebhook "HTTP/1.1 200 OK"
+2026-03-29 00:52:01,596 - apscheduler.scheduler - INFO - Added job "morning_briefing" to job store "default"
+2026-03-29 00:52:01,597 - apscheduler.scheduler - INFO - Added job "calendar_check" to job store "default"
+2026-03-29 00:52:01,597 - apscheduler.scheduler - INFO - Added job "news_digest" to job store "default"
+2026-03-29 00:52:01,597 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-29 00:52:01,597 - telegram.ext.Application - INFO - Application started
+2026-03-29 00:52:09,528 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:52:10,128 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/sendMessage "HTTP/1.1 200 OK"
+2026-03-29 00:52:14,518 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-29 00:52:14,779 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/sendMessage "HTTP/1.1 200 OK"
+2026-03-29 00:52:19,591 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:52:26,167 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:52:26,873 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/sendChatAction "HTTP/1.1 200 OK"
+2026-03-29 00:52:30,003 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/sendMessage "HTTP/1.1 200 OK"
+2026-03-29 00:52:36,240 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:52:47,012 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:52:56,861 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:53:01,874 - apscheduler.executors.default - WARNING - Run time of job "calendar_check (trigger: interval[0:30:00], next run at: 2026-03-29 00:23:00 UTC)" was missed by 0:00:01.390972
+2026-03-29 00:53:06,821 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:53:17,681 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:53:27,643 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:53:37,636 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:53:48,343 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:53:58,287 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:54:08,327 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:54:19,000 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:54:28,928 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:54:38,933 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:54:48,996 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:54:59,668 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:55:09,602 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:55:19,688 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:55:30,475 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:55:40,407 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:55:50,413 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:56:00,436 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:56:04,539 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 00:56:04,541 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2026-03-29 00:56:04,541 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-03-29 00:56:04,552 - telegram.ext.Application - INFO - Application.stop() complete
+2026-03-29 01:01:50,255 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 01:01:50,256 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 01:01:50,256 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-29 01:01:50,874 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getMe "HTTP/1.1 200 OK"
+2026-03-29 01:01:51,058 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/setMyCommands "HTTP/1.1 200 OK"
+2026-03-29 01:01:51,360 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/deleteWebhook "HTTP/1.1 200 OK"
+2026-03-29 01:01:51,363 - apscheduler.scheduler - INFO - Added job "morning_briefing" to job store "default"
+2026-03-29 01:01:51,363 - apscheduler.scheduler - INFO - Added job "calendar_check" to job store "default"
+2026-03-29 01:01:51,363 - apscheduler.scheduler - INFO - Added job "news_digest" to job store "default"
+2026-03-29 01:01:51,363 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-29 01:01:51,363 - telegram.ext.Application - INFO - Application started
+2026-03-29 01:01:58,049 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8678217407:AAHxHebmz8Rd8hx_u4an5XGbEfJmQpENcR8/getUpdates "HTTP/1.1 200 OK"
+2026-03-29 01:01:58,050 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2026-03-29 01:01:58,051 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-03-29 01:01:58,061 - telegram.ext.Application - INFO - Application.stop() complete

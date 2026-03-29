@@ -278,6 +278,142 @@ def format_heatmap_message(pressure: dict) -> str:
     return "\n".join(lines)
 
 
+def _split_pair_currencies(pair: str) -> tuple[str, str]:
+    """Return (base, quote) currency codes for a normalized pair string."""
+    pair = pair.upper()
+    if pair.startswith("XAU"):
+        return "XAU", pair[3:]
+    if len(pair) == 6:
+        return pair[:3], pair[3:]
+    return pair, ""
+
+
+async def get_pair_intelligence(pair: str) -> dict:
+    """Fetch news, pressure data, and Groq AI analysis for a specific pair."""
+    pair = pair.upper().replace("/", "")
+    try:
+        all_articles = await fetch_news(limit=30)
+        pair_articles = await get_news_for_pair(pair)
+        pressure = analyze_market_pressure(all_articles)
+
+        base, quote = _split_pair_currencies(pair)
+        base_pressure = pressure["currencies"].get(base, 0)
+        quote_pressure = pressure["currencies"].get(quote, 0)
+
+        has_specific = len(pair_articles) >= 3
+        analysis_articles = pair_articles if has_specific else all_articles[:8]
+        fallback_note = "" if has_specific else (
+            "\n\n(Note: Limited pair-specific articles found — analysis based on general market news.)"
+        )
+
+        content = "\n\n".join(
+            f"Title: {a['title']}\nSummary: {a['summary']}"
+            for a in analysis_articles[:8]
+        ) + fallback_note
+
+        pair_display = f"{base}/{quote}" if quote else pair
+        system_prompt = (
+            f"You are PipMercy, a forex trading assistant for a beginner trader named Mercylina. "
+            f"Analyze the following news articles specifically for {pair_display} trading opportunities.\n"
+            f"Provide:\n"
+            f"1. Current sentiment (Bullish/Bearish/Neutral) for {pair_display} with a confidence level (High/Medium/Low)\n"
+            f"2. Key driver — the single most important news factor affecting this pair right now\n"
+            f"3. Levels to watch — suggest one key support and one resistance level if inferable from the news, "
+            f"otherwise say 'Not determinable from news alone'\n"
+            f"4. Trader tip — one actionable tip for a beginner trading this pair today\n"
+            f"Keep it concise, direct, and beginner-friendly. Use simple language."
+        )
+
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: _groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": content},
+                ],
+            ),
+        )
+        groq_analysis = response.choices[0].message.content.strip()
+
+        return {
+            "pair":                  pair,
+            "base_currency":         base,
+            "quote_currency":        quote,
+            "pair_articles":         pair_articles,
+            "pair_article_count":    len(pair_articles),
+            "base_pressure":         base_pressure,
+            "quote_pressure":        quote_pressure,
+            "total_articles_scanned": len(all_articles),
+            "groq_analysis":         groq_analysis,
+            "has_specific_articles": has_specific,
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def format_pair_intelligence_message(intel: dict) -> str:
+    """Format the full pair intelligence report for Telegram."""
+    pair = intel["pair"]
+    base = intel["base_currency"]
+    quote = intel["quote_currency"]
+    base_p = intel["base_pressure"]
+    quote_p = intel["quote_pressure"]
+    total = intel["total_articles_scanned"]
+    articles = intel["pair_articles"]
+    groq_analysis = intel["groq_analysis"]
+
+    def dot(count, max_count):
+        if max_count == 0 or count == 0:
+            return "⚪"
+        ratio = count / max_count
+        if ratio >= 0.6:
+            return "🔴"
+        if ratio >= 0.3:
+            return "🟡"
+        return "🟢"
+
+    max_p = max(base_p, quote_p, 1)
+    base_dot = dot(base_p, max_p)
+    quote_dot = dot(quote_p, max_p)
+
+    if quote_p > base_p * 1.5:
+        dominance = f"{quote} is dominating news flow today"
+    elif base_p > quote_p * 1.5:
+        dominance = f"{base} is dominating news flow today"
+    else:
+        dominance = "Both currencies have similar news activity"
+
+    lines = [
+        f"🔍 {pair} Intelligence Report",
+        f"",
+        f"📊 Market Pressure",
+        f"{base_dot} {base} — {base_p} mentions  |  {quote_dot} {quote} — {quote_p} mentions",
+        f"{dominance}",
+        f"",
+        f"📰 AI Analysis",
+        groq_analysis,
+    ]
+
+    if articles:
+        lines.append(f"")
+        lines.append(f"📎 Related Articles ({min(len(articles), 3)})")
+        lines.append("")
+        for a in articles[:3]:
+            lines.append(f"[{a['source']}] {a['title']} → {a['link']}")
+
+    if not intel["has_specific_articles"]:
+        lines.append("")
+        lines.append("⚠️ Limited pair-specific articles found — analysis based on general market news.")
+
+    lines.append("")
+    lines.append(f"⚠️ Based on {total} articles scanned. Not financial advice.")
+
+    return "\n".join(lines)
+
+
 def format_news_message(articles: list, summary: str) -> str:
     """Combine Groq summary + heatmap + top 3 source links into one message."""
     sources = "\n".join(

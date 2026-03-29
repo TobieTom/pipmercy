@@ -19,6 +19,7 @@ from calendar_alerts import fetch_today_events, format_calendar_message, check_u
 from config import TELEGRAM_TOKEN, CHAT_ID
 from database import init_db
 from journal import get_weekly_summary, format_weekly_summary
+import news as news_module
 from news import fetch_news, summarize_with_groq, format_news_message, analyze_market_pressure, format_heatmap_message
 
 logging.basicConfig(
@@ -149,6 +150,29 @@ async def heatmap_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message, disable_web_page_preview=True)
 
 
+async def pair_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: /pair <symbol>\n\nExamples:\n/pair EURUSD\n/pair XAUUSD\n/pair GBPUSD\n/pair USDJPY",
+            disable_web_page_preview=True,
+        )
+        return
+    pair = context.args[0].upper().replace("/", "")
+    await context.bot.send_chat_action(chat_id=update.message.chat_id, action=ChatAction.TYPING)
+    loading = await update.message.reply_text(
+        f"🔍 Analysing {pair}... fetching news and running AI analysis...",
+        disable_web_page_preview=True,
+    )
+    intel = await news_module.get_pair_intelligence(pair)
+    if "error" in intel:
+        await loading.edit_text(f"⚠️ Couldn't fetch intelligence for {pair}. Try again.")
+        return
+    message = news_module.format_pair_intelligence_message(intel)
+    await loading.edit_text(message, disable_web_page_preview=True)
+
+
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("Usage: /price EURUSD\nExample: /price XAUUSD")
@@ -243,6 +267,7 @@ async def post_init(application):
         BotCommand("price",    "Get live price: /price EURUSD"),
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
         BotCommand("heatmap",  "Market pressure — which pairs are most active"),
+        BotCommand("pair",     "Pair intelligence: /pair EURUSD"),
         BotCommand("help",     "How to use PipMercy"),
     ])
 
@@ -263,6 +288,7 @@ def main():
     app.add_handler(CommandHandler("news",     news_command))
     app.add_handler(CommandHandler("calendar", calendar_command))
     app.add_handler(CommandHandler("heatmap",  heatmap_command))
+    app.add_handler(CommandHandler("pair",     pair_command))
     app.add_handler(CommandHandler("price",    price_command))
     app.add_handler(CommandHandler("close",    close_command))
     app.add_handler(CommandHandler("help",     help_command))

@@ -57,7 +57,17 @@ CALENDAR: trader wants economic calendar
 
 NEWS: trader wants market news
   extracted_data: {
-    "pair": null
+    "pair": null   # specific pair or null. Extract pair from phrases like:
+    # "news on gold" → "XAUUSD"
+    # "what's happening with the pound" → "GBPUSD"
+    # "EURUSD news" → "EURUSD"
+    # "how is dollar doing" → "USD"
+    # "cable" → "GBPUSD"
+    # "fiber" → "EURUSD"
+    # "aussie" → "AUDUSD"
+    # "loonie" → "USDCAD"
+    # "swissy" → "USDCHF"
+    # "kiwi" → "NZDUSD"
   }
 
 WEEKLY_SUMMARY: trader wants their weekly performance
@@ -236,11 +246,14 @@ async def handle_calendar(data: dict) -> str:
 async def handle_news(data: dict) -> str:
     pair = data.get("pair")
     if pair:
-        articles = await news_module.get_news_for_pair(pair.upper())
+        intel = await news_module.get_pair_intelligence(pair.upper())
+        if "error" in intel:
+            return f"⚠️ Couldn't fetch intelligence for {pair}. Try again."
+        return news_module.format_pair_intelligence_message(intel)
     else:
         articles = await news_module.fetch_news(limit=8)
-    summary = await news_module.summarize_with_groq(articles)
-    return news_module.format_news_message(articles, summary)
+        summary = await news_module.summarize_with_groq(articles)
+        return news_module.format_news_message(articles, summary)
 
 
 async def handle_weekly_summary(data: dict) -> str:
