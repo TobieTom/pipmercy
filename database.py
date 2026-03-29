@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-DB_PATH = "pipmercy.db"
+DB_PATH = os.getenv("DB_PATH", "pipmercy.db")
 
 
 def init_db():
