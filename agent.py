@@ -206,6 +206,14 @@ async def handle_log_trade(data: dict) -> str:
     if checklist_warnings:
         response = response + f"\n\n{checklist_warnings}"
 
+    try:
+        from sessions import should_warn_about_session
+        session_warning = should_warn_about_session(pair)
+        if session_warning:
+            response = response + f"\n\n{session_warning}"
+    except Exception:
+        pass
+
     return response
 
 

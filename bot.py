@@ -17,6 +17,7 @@ import checklist
 import coach
 import journal as journal_module
 import prices
+import sessions
 import streaks
 from agent import process_message
 from calendar_alerts import fetch_today_events, format_calendar_message, check_upcoming_and_alert
@@ -177,6 +178,19 @@ async def pair_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     message = news_module.format_pair_intelligence_message(intel)
     await loading.edit_text(message, disable_web_page_preview=True)
+
+
+async def session_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    if context.args:
+        pair = context.args[0].upper().replace("/", "")
+        pair_info = sessions.get_session_for_pair(pair)
+        msg = sessions.format_session_message()
+        msg += f"\n\n{pair_info.get('message', '')}"
+    else:
+        msg = sessions.format_session_message()
+    await update.message.reply_text(msg, disable_web_page_preview=True)
 
 
 async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -373,6 +387,7 @@ async def post_init(application):
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
         BotCommand("heatmap",  "Market pressure — which pairs are most active"),
         BotCommand("pair",     "Pair intelligence: /pair EURUSD"),
+        BotCommand("session",   "Current market session and best pairs to trade"),
         BotCommand("today",     "Today's P&L and open positions summary"),
         BotCommand("checklist", "Pre-trade risk check: /checklist EURUSD BUY 1.08 1.075"),
         BotCommand("streak",   "Your discipline streak and score"),
@@ -399,6 +414,7 @@ def main():
     app.add_handler(CommandHandler("heatmap",  heatmap_command))
     app.add_handler(CommandHandler("pair",     pair_command))
     app.add_handler(CommandHandler("price",    price_command))
+    app.add_handler(CommandHandler("session",   session_command))
     app.add_handler(CommandHandler("today",     today_command))
     app.add_handler(CommandHandler("checklist", checklist_command))
     app.add_handler(CommandHandler("streak",   streak_command))
