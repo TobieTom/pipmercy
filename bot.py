@@ -13,6 +13,7 @@ from telegram.ext import (
 )
 
 import agent
+import checklist
 import coach
 import journal as journal_module
 import prices
@@ -21,7 +22,9 @@ from agent import process_message
 from calendar_alerts import fetch_today_events, format_calendar_message, check_upcoming_and_alert
 from config import TELEGRAM_TOKEN, CHAT_ID
 from database import init_db
+from config import DEFAULT_BALANCE, DEFAULT_RISK_PERCENT
 from journal import get_weekly_summary, format_weekly_summary
+import calculator
 import news as news_module
 from news import fetch_news, summarize_with_groq, format_news_message, analyze_market_pressure, format_heatmap_message
 
@@ -176,6 +179,48 @@ async def pair_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await loading.edit_text(message, disable_web_page_preview=True)
 
 
+async def checklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat_id != CHAT_ID:
+        return
+    if len(context.args) < 4:
+        await update.message.reply_text(
+            "Usage: /checklist PAIR DIRECTION ENTRY SL [TP]\n\nExample:\n"
+            "/checklist EURUSD BUY 1.0850 1.0800 1.0950\n"
+            "/checklist XAUUSD BUY 4500 4480",
+            disable_web_page_preview=True,
+        )
+        return
+    try:
+        pair   = context.args[0].upper()
+        entry  = float(context.args[2])
+        sl     = float(context.args[3])
+        tp     = float(context.args[4]) if len(context.args) > 4 else None
+
+        settings    = journal_module.get_settings()
+        balance     = settings.get("default_balance", DEFAULT_BALANCE)
+        risk_pct    = settings.get("default_risk_percent", DEFAULT_RISK_PERCENT)
+
+        pos = calculator.calculate_position_size(balance, risk_pct, entry, sl, pair)
+        lot_size = pos.get("lot_size_micro", 0) if "error" not in pos else 0
+
+        await context.bot.send_chat_action(
+            chat_id=update.message.chat_id, action=ChatAction.TYPING
+        )
+        warnings = await checklist.run_pretrade_checklist(pair, entry, sl, tp, lot_size, balance)
+
+        if not warnings:
+            await update.message.reply_text(
+                "✅ Pre-Trade Checklist Passed\n\nAll checks clear — this trade looks clean from a risk management perspective.",
+                disable_web_page_preview=True,
+            )
+        else:
+            await update.message.reply_text(warnings, disable_web_page_preview=True)
+    except (ValueError, IndexError):
+        await update.message.reply_text(
+            "Invalid format. Example: /checklist EURUSD BUY 1.0850 1.0800 1.0950"
+        )
+
+
 async def streak_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat_id != CHAT_ID:
         return
@@ -302,6 +347,7 @@ async def post_init(application):
         BotCommand("close",    "Close a trade: /close 3 win 1.20"),
         BotCommand("heatmap",  "Market pressure — which pairs are most active"),
         BotCommand("pair",     "Pair intelligence: /pair EURUSD"),
+        BotCommand("checklist", "Pre-trade risk check: /checklist EURUSD BUY 1.08 1.075"),
         BotCommand("streak",   "Your discipline streak and score"),
         BotCommand("review",   "AI trade review: /review or /review 3"),
         BotCommand("help",     "How to use PipMercy"),
@@ -326,6 +372,7 @@ def main():
     app.add_handler(CommandHandler("heatmap",  heatmap_command))
     app.add_handler(CommandHandler("pair",     pair_command))
     app.add_handler(CommandHandler("price",    price_command))
+    app.add_handler(CommandHandler("checklist", checklist_command))
     app.add_handler(CommandHandler("streak",   streak_command))
     app.add_handler(CommandHandler("review",   review_command))
     app.add_handler(CommandHandler("close",    close_command))

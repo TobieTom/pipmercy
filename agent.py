@@ -183,11 +183,30 @@ async def handle_log_trade(data: dict) -> str:
         pair, direction, entry, sl, float(tp) if tp is not None else None,
         balance, risk_percent,
     )
-    return (
+    response = (
         f"✅ Trade logged! #{result['trade_id']}\n"
         f"{position_msg}\n"
         f"💾 Saved to your journal. Good luck Mercy! 🎯"
     )
+
+    checklist_warnings = ""
+    try:
+        from checklist import run_pretrade_checklist
+        checklist_warnings = await run_pretrade_checklist(
+            pair=pair,
+            entry=entry,
+            stop_loss=sl,
+            take_profit=float(tp) if tp is not None else None,
+            lot_size_micro=pos["lot_size_micro"],
+            balance=balance,
+        )
+    except Exception:
+        pass
+
+    if checklist_warnings:
+        response = response + f"\n\n{checklist_warnings}"
+
+    return response
 
 
 async def handle_close_trade(data: dict) -> str:
